@@ -1,0 +1,146 @@
+# it is a test???
+# my favorite books:
+# my favorite movies:
+# my favorite sports:
+#my hobbies?
+import socket
+import os
+
+HOST = '127.0.0.1'
+PORT = 2121
+
+clientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+clientSocket.connect((HOST, PORT))
+
+# Read the contents of the certificate and private key files
+with open('csr.pem', 'r') as csr_file:
+    csr_content = csr_file.read()
+
+with open('Certificate.pem', 'r') as cert_file:
+    cert_content = cert_file.read()
+
+with open('Private_key.pem', 'r') as key_file:
+    key_content = key_file.read()
+
+while True:
+    command = input('Enter your command: ')
+    clientSocket.sendall(command.encode())
+
+    if command.lower() == 'quit':
+        break
+
+    data = clientSocket.recv(1024).decode()
+
+    if command.startswith('dwld') and data != 'Bad Request....\nWrong Command!!...':
+        # Establish a new socket for file transfer
+        clientSocket2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        clientSocket2.connect((HOST, int(data)))
+
+        # Extract the filename from the command
+        filename = command[5:]
+
+        # Create a file to save the downloaded data
+        with open(os.path.join('.', filename), 'wb') as file:
+            file_info = clientSocket2.recv(1048579)
+            while file_info:
+                file.write(file_info)
+                file_info = clientSocket2.recv(1048579)
+
+        clientSocket2.close()
+        print(f'File "{filename}" downloaded successfully.')
+    else:
+        print(data)
+
+# Close the main socket
+clientSocket.close()
+
+
+# client
+# import socket 
+# import os
+# import ssl
+
+# HOST = '127.0.0.1'  # or '10.30.204.149'
+# PORT = 2121
+
+# # SSL context creation
+# ssl_context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+# ssl_context.check_hostname = False
+# ssl_context.verify_mode = ssl.CERT_NONE
+
+# clientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+# ssl_sock = ssl_context.wrap_socket(clientSocket)
+
+# ssl_sock.connect((HOST, PORT))
+
+# while True:
+#     command = input('Enter your command: ')
+#     ssl_sock.sendall(command.encode())
+
+#     if command.lower() == 'quit':
+#         break
+
+#     data = ssl_sock.recv(1024)
+
+#     if command.lower().startswith('dwld'):
+#         filename = command[5:]
+#         with open(filename, 'wb') as file:
+#             file.write(data)
+#         print('File downloaded successfully')
+#     else:
+#         print(data.decode())
+
+# ssl_sock.close()
+
+#server
+# import socket 
+# import os
+# import ssl
+
+# HOST = '127.0.0.1'  # or '10.30.204.149'
+# PORT = 2120
+
+# # SSL context creation
+# ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+# ssl_context.load_cert_chain(certfile="server.crt", keyfile="server.key")
+
+# serverSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+# serverSocket.bind((HOST, PORT))
+# serverSocket.listen()
+
+# print(f'Server listening on {HOST}:{PORT}')
+
+# while True:
+#     conn, addr = serverSocket.accept()
+#     print(f'Connected with: {addr}')
+
+#     # Wrap the connection with SSL
+#     ssl_conn = ssl_context.wrap_socket(conn, server_side=True)
+
+#     try:
+#         while True:
+#             command = ssl_conn.recv(1024).decode()
+#             print(f'Received command: {command}')
+
+#             if command.lower() == 'quit':
+#                 exit()
+#             elif command.lower() == 'list':
+#                 file_list = '\n'.join(os.listdir())
+#                 ssl_conn.sendall(file_list.encode())
+#             elif command.lower().startswith('dwld'):
+#                 filename = command[5:]
+#                 if filename in os.listdir():
+#                     with open(filename, 'rb') as file:
+#                         file_data = file.read()
+#                     ssl_conn.sendall(file_data)
+#                 else:
+#                     ssl_conn.sendall('File not found'.encode())
+#             else:
+#                 ssl_conn.sendall('Invalid command'.encode())
+
+#     finally:
+#         ssl_conn.close()
+
+# serverSocket.close()
+
+

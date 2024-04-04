@@ -1,0 +1,137 @@
+hi everyone....
+it is good to se you =)
+how is it going?
+what are you going to do?
+certfile_path = 'Users/abhijeetkumar/Desktop/sem 4/CN/FTP-Client-Server-Python-Socket-Programming-master/certificate.pem'
+keyfile_path = 'Users/abhijeetkumar/Desktop/sem 4/CN/FTP-Client-Server-Python-Socket-Programming-master/private_key.pem'
+import socket
+import ssl
+import os
+import random
+
+def printRelativePath():
+    path = os.getcwd()
+    if path.endswith('main'):
+        return '/'
+    else:
+        pos = path.index('main')
+        return path[pos + 5:]
+
+def ListItems():
+    try:
+        with os.scandir() as items:
+            res = ''
+            totalSize = 0
+            for item in items:
+                if item.is_file():
+                    size = item.stat().st_size
+                    res += f'{item.name} \t {size}b \n'
+                    totalSize += size
+                elif item.is_dir():
+                    res += f'> {item.name} \n'
+            res += f'total size: {totalSize}b \n'
+            return res
+    except OSError as e:
+        return f"Error: {e}"
+
+def downloadFile(connection, data):
+    try:
+        found = 0
+        path = os.getcwd()
+        fileName = data[5:]
+        if 'main' in path:
+            items = os.scandir()
+            for item in items:
+                if fileName == item.name:
+                    found = 1
+                    break
+            if found:
+                portRandom = random.randrange(3000, 50000)
+                connection.sendall(str(portRandom).encode())
+                dwldSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                dwldSocket.bind(('192.0.0.1', portRandom))
+                dwldSocket.listen()
+                connection2, addr = dwldSocket.accept()
+                with open(fileName, 'rb') as destFile:
+                    connection2.sendall(destFile.read())
+                connection2.close()
+            else:
+                connection.sendall('Bad Request....\nWrong Command!!...'.encode())
+    except Exception as e:
+        connection.sendall(f"Error: {e}".encode())
+
+def uploadFile(connection):
+    try:
+        portRandom = random.randrange(3000, 50000)
+        connection.sendall(str(portRandom).encode())
+        uploadSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        uploadSocket.bind(('10.30.202.101', portRandom))
+        uploadSocket.listen()
+        conn2, addr2 = uploadSocket.accept()
+        filename = conn.recv(1024).decode()
+        with open(filename, 'wb') as file:
+            while True:
+                file_data = conn2.recv(1024)
+                if not file_data:
+                    break
+                file.write(file_data)
+        conn2.close()
+    except Exception as e:
+        connection.sendall(f"Error: {e}".encode())
+
+def changeDirectory(directory):
+    try:
+        os.chdir(directory)
+        return "Directory changed successfully."
+    except FileNotFoundError:
+        return "Directory not found."
+    except PermissionError:
+        return "Permission denied."
+    except Exception as e:
+        return f"Error: {e}"
+
+# Load certificate and private key
+context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+context.load_cert_chain(certfile="certificate.pem", keyfile="private_key.pem")
+
+# Create and bind server socket
+serverSocket = context.wrap_socket(socket.socket(socket.AF_INET, socket.SOCK_STREAM), server_side=True)
+serverSocket.bind(('10.30.202.101', 2121))
+serverSocket.listen()
+print('Server listening on 10.30.202.101')
+
+try:
+    # Accept incoming connections
+    conn, addr = serverSocket.accept()
+    print(f'Connected with: {addr}')
+
+    while True:
+        print('Waiting to receive data.....')
+        Data = conn.recv(1024).decode()
+        print(f'\nReceived instruction: {Data}\n')
+
+        if Data == 'help':
+            message = 'list               : List files\ndwld filePath       : Download file\nchdir directory     : Change directory\nupload filename     : Upload file\nquit                : Exit'
+            conn.sendall(message.encode())
+        elif Data == 'quit':
+            break
+        elif Data == 'list':
+            data = ListItems()
+            conn.sendall(data.encode())
+        elif Data.startswith('dwld'):
+            downloadFile(conn, Data)
+        elif Data.startswith('chdir'):
+            directory = Data.split(' ')[1]
+            message = changeDirectory(directory)
+            conn.sendall(message.encode())
+        elif Data.startswith('upload'):
+            uploadFile(conn)
+        else:
+            message = 'Bad Request....\nWrong Command!!...'
+            conn.sendall(message.encode())
+
+except Exception as e:
+    print(f"Error: {e}")
+
+finally:
+    serverSocket.close()
